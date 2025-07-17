@@ -1,6 +1,6 @@
 const libPictViewClass = require('pict-view');
 
-const default_configuration = 
+const default_configuration =
 {
 	"RenderOnLoad": true,
 	"DefaultRenderable": "PDFJS-Wrap",
@@ -80,9 +80,10 @@ class PictSectionPDFJS extends libPictViewClass
 		super.onBeforeInitialize();
 	}
 
-	onAfterRender()
+	onAfterRender(pRenderable)
 	{
-		const viewerEl = /*html*/`<pdfjs-viewer-element 
+		super.onAfterRender(pRenderable);
+		const viewerEl = /*html*/`<pdfjs-viewer-element
                                     class="injectable-size"
                                     src="${ this.options.pdfUrl }"
                                     viewer-path="${ this.options.pdfjsPath }"
@@ -104,7 +105,7 @@ class PictSectionPDFJS extends libPictViewClass
 									>
                                 </pdfjs-viewer-element>`;
         this.pict.ContentAssignment.assignContent(`${ this.options?.DefaultDestinationAddress } > #pdfjs-injectable`, viewerEl);
-		
+
 		// Waits for the pdfjs lib to instantiate itself before checking if it should show the info banner and setting a local instance reference.
 		let timer = 0;
 		const setpdfjsReference = () =>
@@ -130,8 +131,8 @@ class PictSectionPDFJS extends libPictViewClass
 								</div>
 								<div class="pdfjs-banner-close" onclick="
 									if (document.querySelector('#pdfjs-info-banner')?.innerHTML)
-									{ 
-										document.querySelector('#pdfjs-info-banner').innerHTML = ''; 
+									{
+										document.querySelector('#pdfjs-info-banner').innerHTML = '';
 									}
 								">&times;</div>
 							`;
@@ -149,7 +150,7 @@ class PictSectionPDFJS extends libPictViewClass
 	}
 
 	/*
-		Gets the current active page of the pdf viewer. 
+		Gets the current active page of the pdf viewer.
 		This is the "absolute" page number rather than being based on altered numbering in the page labels metadata.
 	*/
 	getCurrentPage()
@@ -158,7 +159,7 @@ class PictSectionPDFJS extends libPictViewClass
 	}
 
 	/*
-		Sets the current active page of the pdf viewer. 
+		Sets the current active page of the pdf viewer.
 		This is the "absolute" page number rather than being based on altered numbering in the page labels metadata.
 	*/
 	setCurrentPage(pageNumber)
@@ -171,7 +172,7 @@ class PictSectionPDFJS extends libPictViewClass
 	}
 
 	/*
-		Gets the current active page of the pdf viewer. 
+		Gets the current active page of the pdf viewer.
 		This is the "relative" page number, i.e. defined by the pdfs metadata rather than the absolute number of pages.
 		Note that this function is async.
 	*/
