@@ -1,6 +1,6 @@
 {
     "name": "pict-section-pdfjs",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "description": "PDFJS section component for pict.",
     "main": "source/Pict-Section-PDFJS.js",
     "scripts": {

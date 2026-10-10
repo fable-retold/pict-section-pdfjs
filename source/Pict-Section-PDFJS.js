@@ -83,70 +83,94 @@ class PictSectionPDFJS extends libPictViewClass
 	onAfterRender(pRenderable)
 	{
 		super.onAfterRender(pRenderable);
-		const viewerEl = /*html*/`<pdfjs-viewer-element
-                                    class="injectable-size"
-                                    src="${ this.options.pdfUrl }"
-                                    viewer-path="${ this.options.pdfjsPath }"
-									viewer-css-theme="${ this.options?.theme?.toUpperCase() || 'DARK' }"
-									viewer-extra-styles="${ this.options?.styles }
-															#editorStampButton {
-																display: none;
-															}
-															#editorInkButton {
-																display: none;
-															}
-															#editorFreeTextButton {
-																display: none;
-															}
-															#editorHighlightButton {
-																display: none;
-															}
-														"
-									>
-                                </pdfjs-viewer-element>`;
-        this.pict.ContentAssignment.assignContent(`${ this.options?.DefaultDestinationAddress } > #pdfjs-injectable`, viewerEl);
-
-		// Waits for the pdfjs lib to instantiate itself before checking if it should show the info banner and setting a local instance reference.
-		let timer = 0;
-		const setpdfjsReference = () =>
+		const viewerEl = /*html*/`
+		<pdfjs-viewer-element
+			class="injectable-size"
+			src="${ this.options.pdfUrl }"
+			viewer-path="${ this.options.pdfjsPath }"
+			viewer-css-theme="${ this.options?.theme?.toUpperCase() || 'DARK' }"
+			viewer-extra-styles="${ this.options?.styles }
+									#editorStampButton {
+										display: none;
+									}
+									#editorInkButton {
+										display: none;
+									}
+									#editorFreeTextButton {
+										display: none;
+									}
+									#editorHighlightButton {
+										display: none;
+									}
+								"
+			>
+		</pdfjs-viewer-element>`;
+		// Remove the listener from any previous render so re-renders don't stack handlers.
+		if (this._onWebViewerLoaded)
 		{
-			const pdfjsObj = document.querySelector('pdfjs-viewer-element')?.shadowRoot?.querySelector('iframe')?.contentWindow?.PDFViewerApplication;
-			if (pdfjsObj && pdfjsObj?.pdfDocument)
+			document.removeEventListener('webviewerloaded', this._onWebViewerLoaded);
+		}
+
+		// The pdfjs viewer dispatches "webviewerloaded" on the parent document (with the iframe's window as detail.source)
+		// just before it starts up, so it must be listened for before the viewer element is injected.
+		this._onWebViewerLoaded = (pEvent) =>
+		{
+			const viewerElement = document.querySelector(`${ this.options?.DefaultDestinationAddress } pdfjs-viewer-element`);
+			const viewerWindow = viewerElement?.shadowRoot?.querySelector('iframe')?.contentWindow;
+			if (!viewerWindow || pEvent?.detail?.source !== viewerWindow)
 			{
-				const bannerInjectionEl = document.querySelector('#pdfjs-info-banner');
+				// Either this view is no longer rendered or the event came from a different viewer on the page.
+				if (!viewerElement)
+				{
+					document.removeEventListener('webviewerloaded', this._onWebViewerLoaded);
+				}
+				return;
+			}
+			const pdfjsApp = viewerWindow.PDFViewerApplication;
+			// The event bus is only created during initialization, and "documentloaded" fires once a pdf (and its first page) is ready.
+			// This fires again if a new document is opened in the same viewer, keeping the instance reference current.
+			pdfjsApp?.initializedPromise?.then(() =>
+			{
+				pdfjsApp.eventBus.on('documentloaded', () => this.onPDFJSDocumentLoaded(pdfjsApp));
+			});
+		};
+		document.addEventListener('webviewerloaded', this._onWebViewerLoaded);
+
+		this.pict.ContentAssignment.assignContent(`${ this.options?.DefaultDestinationAddress } > #pdfjs-injectable`, viewerEl);
+	}
+
+	/*
+		Called once the pdfjs viewer has loaded a document.
+		Sets the local instance reference and checks if it should show the info banner.
+	*/
+	onPDFJSDocumentLoaded(pdfjsApp)
+	{
+		this.pdfjsInstance = pdfjsApp;
+		const bannerInjectionEl = document.querySelector('#pdfjs-info-banner');
+		if (bannerInjectionEl)
+		{
+			bannerInjectionEl.innerHTML = '';
+		}
+		this.getStartingPageLabel().then((page) =>
+		{
+			if (page !== 1)
+			{
 				if (bannerInjectionEl)
 				{
-					bannerInjectionEl.innerHTML = '';
+					bannerInjectionEl.innerHTML = this.options?.pageInfoTemplate ? this.options.pageInfoTemplate : /*html*/`
+						<div class="pdfjs-info-banner">
+							Note: This pdf does not start on page 1.
+						</div>
+						<div class="pdfjs-banner-close" onclick="
+							if (document.querySelector('#pdfjs-info-banner')?.innerHTML)
+							{
+								document.querySelector('#pdfjs-info-banner').innerHTML = '';
+							}
+						">&times;</div>
+					`;
 				}
-				this.pdfjsInstance = pdfjsObj;
-				this.getStartingPageLabel().then((page) =>
-				{
-					if (page !== 1)
-					{
-						if (bannerInjectionEl)
-						{
-							bannerInjectionEl.innerHTML = this.options?.pageInfoTemplate ? this.options.pageInfoTemplate : /*html*/`
-								<div class="pdfjs-info-banner">
-									Note: This pdf does not start on page 1.
-								</div>
-								<div class="pdfjs-banner-close" onclick="
-									if (document.querySelector('#pdfjs-info-banner')?.innerHTML)
-									{
-										document.querySelector('#pdfjs-info-banner').innerHTML = '';
-									}
-								">&times;</div>
-							`;
-						}
-					}
-				});
 			}
-			else if (timer < 30)
-			{
-				timer += 1;
-				setTimeout(setpdfjsReference, 100);
-			}
-		}
-		setpdfjsReference();
+		});
 	}
 
 	/*
